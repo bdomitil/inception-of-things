@@ -1,0 +1,59 @@
+VAGRANT_EXPERIMENTAL = "disks"
+WORKER_IP = "192.168.42.111"
+MASTER_IP = "192.168.42.110"
+TOKEN_FILE = "master-token.txt"
+SHARED_DIR = "/vagrant/"
+
+Vagrant.configure("2") do |config|
+######################
+### Master NODE ######
+######################
+  config.vm.define "bdomitil" do | v|
+
+    v.vm.box = "centos7"
+    v.vm.hostname = "MasterS"
+    v.vm.network "private_network", ip: MASTER_IP
+    # v.disksize.size = '20GB' #vagrant plugin install disksize
+    v.vm.provider "virtualbox" do | vb |
+      vb.name = "bdomitil"
+      vb.memory = 1024
+      vb.cpus = 1
+    end
+    v.vm.provision "shell", args: [MASTER_IP, WORKER_IP, TOKEN_FILE, SHARED_DIR ], inline: <<-SHELL
+      echo "$2  SlaveSW" > /etc/hosts
+     curl -sfL https://get.k3s.io | sh -s - --no-deploy traefik --write-kubeconfig-mode 644 --node-name  k3s-master --node-external-ip $1 --advertise-address $1 
+      cp /var/lib/rancher/k3s/server/node-token $4$3
+      chmod 777 $4$3
+  SHELL
+    v.trigger.after :up do | trigger |
+      trigger.run = {inline: "scp -i  ./.vagrant/machines/bdomitil/virtualbox/private_key 
+        -o \"UserKnownHostsFile=/dev/null\" -o \"StrictHostKeyChecking=no\" vagrant@192.168.42.110:/vagrant/master-token.txt ./" }
+    end
+  end
+
+######################
+###  Slave NODE ######
+######################
+
+  config.vm.define "ikael" do | v |
+    v.vm.box = "centos7"
+    v.vm.hostname = "SlaveSW"
+    v.vm.network "private_network", ip: "192.168.42.111"
+    # v.disksize.size = '20GB' #vagrant plugin install disksize
+    v.vm.provider "virtualbox" do | vb |
+      vb.name = "ikael"
+      vb.memory = 1024
+      vb.cpus = 1
+    end
+    v.vm.provision "shell", args: [MASTER_IP, WORKER_IP, TOKEN_FILE, SHARED_DIR ],  inline:  <<-SHELL
+      echo "$1  MasterS" > /etc/hosts
+      curl -sfL https://get.k3s.io | K3S_NODE_NAME=k3s-worker K3S_URL=https://MasterS:6443 K3S_TOKEN=$(cat $4$3) sh - 
+    SHELL
+    v.trigger.after :up do | trigger |
+      trigger.run = { inline: "rm -rf ./master-token.txt"}
+    end
+  end
+
+end
+
+
