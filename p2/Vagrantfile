@@ -14,19 +14,18 @@ Vagrant.configure("2") do |config|
     v.vm.network "private_network", ip: MASTER_IP
     # v.disksize.size = '20GB' #vagrant plugin install disksize
     v.vm.provider "virtualbox" do | vb |
-      vb.name = "bdomitil"
+      vb.name = "bdomitil-KUBE"
       vb.memory = MEMORY_SIZE
       vb.cpus = CPU_NUM
     end
     v.vm.provision "shell", args: [ MASTER_IP ], inline: <<-SHELL
-      echo "$2  SlaveSW" > /etc/hosts
      curl -sfL https://get.k3s.io | sh -s -  --write-kubeconfig-mode 644 --node-name  k3s-master --node-external-ip $1 --advertise-address $1 
      yum install nano -y
      echo export PATH="/usr/local/bin/:$PATH" > ~/.bashrc
      source ~/.bashrc
-     kubectl apply -f /vagrant/app1.yaml
-     kubectl apply -f /vagrant/app2.yaml
-     kubectl apply -f /vagrant/app3.yaml
+     kubectl apply -f /vagrant/conf/app1.yaml
+     kubectl apply -f /vagrant/conf/app2.yaml
+     kubectl apply -f /vagrant/conf/app3.yaml
   SHELL
   end
 end
