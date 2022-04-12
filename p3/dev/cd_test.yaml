@@ -18,8 +18,7 @@ spec          :
     spec:
       containers  :
         - name    : app1
-          # image : wil42/playground:v2
-          image:    gametron/minecraft
+          image : wil42/playground:v2
           ports:
             - containerPort : 8888
 
