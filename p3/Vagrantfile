@@ -3,6 +3,7 @@ MASTER_IP = "192.168.42.110"
 MEMORY_SIZE = 4048
 CPU_NUM = 6
 ARGO_INSTALL_FILE = "/vagrant/scripts/argo_install.sh"
+
 Vagrant.configure("2") do |config|
 ######################
 ### Master NODE ######
@@ -18,9 +19,13 @@ Vagrant.configure("2") do |config|
       vb.memory = MEMORY_SIZE
       vb.cpus = CPU_NUM
     end
-    v.vm.provision "shell", args: [ MASTER_IP, ARGO_INSTALL_FILE ], inline: <<-SHELL
+    v.vm.provision "file", source: "~/.ssh/id_rsa.pub", destination: "~/.ssh/me.pub"
+
+    v.vm.provision "shell",  args: [ MASTER_IP, ARGO_INSTALL_FILE ], inline: <<-SHELL
     echo export PATH="/usr/local/bin/:$PATH" > ~/.bashrc
     source ~/.bashrc
+    cat ~/.ssh/me.pub >> ~/.ssh/authorized_keys
+    cat ~/.ssh/me.pub  >> /home/vagrant/.ssh/authorized_keys
     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" 
      install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
      yum install nano -y
@@ -31,7 +36,7 @@ Vagrant.configure("2") do |config|
      systemctl start docker
      usermod -aG docker vagrant
      curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | TAG=v5.0.0 bash
-     k3d cluster create argoCluster -a 4
+     k3d cluster create argoCluster -a 4 --api-port localhost:6444
      if [ -f "$2" ]
       then 
       chmod +x $2
