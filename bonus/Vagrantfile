@@ -1,0 +1,73 @@
+VAGRANT_EXPERIMENTAL = "disks"
+MASTER_IP = "192.168.42.110"
+MEMORY_SIZE = 1048
+CPU_NUM = 2
+ARGO_INSTALL_FILE = "/vagrant/scripts/argo_install.sh"
+GITLAB_INSTALL_FILE = "/vagrant/scripts/gitlab_install.sh"
+WORKERS_NUM = "2"
+GITLAB_IP = "192.168.42.111"
+GITLAB_DOMAIN = "bdomitil.dev"
+
+Vagrant.configure("2") do |config|
+######################
+### Master NODE ######
+######################
+  config.vm.define "bdomitil_ArgoGit" do | v|
+
+    v.vm.box = "centos7"
+    v.vm.hostname = "argo-ci"
+    v.vm.network "private_network", ip: MASTER_IP
+    # v.disksize.size = '20GB' #vagrant plugin install disksize
+    v.vm.provider "virtualbox" do | vb |
+      vb.name = "bdomitil_ArgoGit"
+      vb.memory = MEMORY_SIZE
+      vb.cpus = CPU_NUM
+    end
+    v.vm.provision "file", source: "~/.ssh/id_rsa.pub", destination: "~/.ssh/me.pub"
+
+    v.vm.provision "shell", args: [ MASTER_IP, ARGO_INSTALL_FILE, GITLAB_INSTALL_FILE, \
+                  WORKERS_NUM, GITLAB_IP, GITLAB_DOMAIN ], inline: <<-SHELL
+    echo "$5  *.$6" >> /etc/hosts
+    echo export PATH="/usr/local/bin/:$PATH" > ~/.bashrc
+    source ~/.bashrc
+    cat ~/.ssh/me.pub > ~/.ssh/authorized_keys
+    cat ~/.ssh/me.pub  >> /home/vagrant/.ssh/authorized_keys
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" 
+     install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+     yum install nano -y
+     yum install -y yum-utils
+     yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+     yum install -y docker-ce docker-ce-cli containerd.io
+     systemctl enable docker
+     systemctl start docker
+     usermod -aG docker vagrant
+     curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | TAG=v5.0.0 bash
+     k3d cluster create argoCluster   \ 
+      -a $4 \ 
+      --api-port localhost:6444
+     if [ -f "$2" ]
+      then 
+      chmod +x $2
+      bash $2
+      # bash $3       
+     fi
+  SHELL
+  end
+
+  config.vm.define "bdomitil_Gitlab" do | v|
+    v.vm.box = "centos7"
+    v.vm.hostname = "gitlab-srv"
+    v.vm.network "private_network", ip: GITLAB_IP
+    v.vm.provider "virtualbox" do | vb |
+      vb.name = "bdomitil_Gitlab"
+      vb.memory = 4048
+      vb.cpus = 4
+    end
+
+    v.vm.provision "shell", args: [ GITLAB_INSTALL_FILE ], inline: <<-SHELL
+    echo "HI O"
+    SHELL
+  end
+end
+
+
